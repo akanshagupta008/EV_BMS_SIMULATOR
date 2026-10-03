@@ -648,6 +648,23 @@ if "events" not in st.session_state:
         "System initialized", 
         "BMS monitoring enabled" 
     ] 
+
+# -------------------- USER BATTERY INPUTS --------------------
+
+if "battery_capacity" not in st.session_state:
+    st.session_state.battery_capacity = 100.0
+
+if "nominal_voltage" not in st.session_state:
+    st.session_state.nominal_voltage = 48.0
+
+if "max_voltage" not in st.session_state:
+    st.session_state.max_voltage = 52.0
+
+if "max_current" not in st.session_state:
+    st.session_state.max_current = 30.0
+
+if "max_temperature" not in st.session_state:
+    st.session_state.max_temperature = 60.0
  
 # -------------------- HELPERS -------------------- 
  
@@ -667,28 +684,33 @@ def record():
     }) 
     st.session_state.history = st.session_state.history[-100:] 
  
-def bms_status(): 
-    if st.session_state.fault != "NONE": 
-        return st.session_state.fault 
-    if st.session_state.voltage > 52: 
-        return "OVER-VOLTAGE" 
-    if st.session_state.voltage < 48: 
-        return "UNDER-VOLTAGE" 
-    if st.session_state.current > 30: 
-        return "OVER-CURRENT" 
-    if st.session_state.temperature > 60: 
-        return "OVERHEATING" 
+def bms_status():
+    if st.session_state.fault != "NONE":
+        return st.session_state.fault
+
+    if st.session_state.voltage > st.session_state.max_voltage:
+        return "OVER-VOLTAGE"
+
+    if st.session_state.voltage < st.session_state.nominal_voltage:
+        return "UNDER-VOLTAGE"
+
+    if st.session_state.current > st.session_state.max_current:
+        return "OVER-CURRENT"
+
+    if st.session_state.temperature > st.session_state.max_temperature:
+        return "OVERHEATING"
+
     return "NORMAL" 
  
-def reset(): 
-    st.session_state.soc = 50.0 
-    st.session_state.voltage = 50.0 
-    st.session_state.current = 0.0 
-    st.session_state.temperature = 36.5 
-    st.session_state.mode = "IDLE" 
-    st.session_state.fault = "NONE" 
-    st.session_state.history = [] 
-    event("System reset to normal operating state") 
+def reset():
+    st.session_state.soc = 50.0
+    st.session_state.voltage = st.session_state.nominal_voltage
+    st.session_state.current = 0.0
+    st.session_state.temperature = 36.5
+    st.session_state.mode = "IDLE"
+    st.session_state.fault = "NONE"
+    st.session_state.history = []
+    event("System reset to normal operating state")
  
 def charge():
     st.session_state.fault = "NONE"
@@ -762,7 +784,7 @@ def fault_overheat():
 def clear_fault(): 
     st.session_state.fault = "NONE" 
     st.session_state.mode = "IDLE" 
-    st.session_state.voltage = 50.0 
+    st.session_state.voltage = st.session_state.nominal_voltage
     st.session_state.current = 0.0 
     st.session_state.temperature = 36.5 
     event("Fault cleared - system returned to normal") 
@@ -868,6 +890,75 @@ st.markdown('<div class="section-title">🎛️ SIMULATION CONTROLS</div>',
             unsafe_allow_html=True) 
 st.markdown('<div class="section-sub">Use these controls to demonstrate the complete battery operating cycle.</div>', 
             unsafe_allow_html=True) 
+        
+# -------------------- USER INPUT VALUES --------------------
+
+st.markdown("### 👤 USER BATTERY INPUT")
+
+st.caption(
+    "Enter battery values below. The BMS simulator will use these values "
+    "for monitoring, protection and energy calculations."
+)
+
+u1, u2, u3, u4, u5 = st.columns(5)
+
+with u1:
+    user_capacity = st.number_input(
+        "Battery Capacity (Ah)",
+        min_value=1.0,
+        max_value=1000.0,
+        value=st.session_state.battery_capacity,
+        step=1.0
+    )
+
+with u2:
+    user_nominal_voltage = st.number_input(
+        "Nominal Voltage (V)",
+        min_value=1.0,
+        max_value=1000.0,
+        value=st.session_state.nominal_voltage,
+        step=1.0
+    )
+
+with u3:
+    user_max_voltage = st.number_input(
+        "Maximum Voltage (V)",
+        min_value=1.0,
+        max_value=1000.0,
+        value=st.session_state.max_voltage,
+        step=1.0
+    )
+
+with u4:
+    user_max_current = st.number_input(
+        "Maximum Current (A)",
+        min_value=1.0,
+        max_value=1000.0,
+        value=st.session_state.max_current,
+        step=1.0
+    )
+
+with u5:
+    user_max_temperature = st.number_input(
+        "Maximum Temperature (°C)",
+        min_value=1.0,
+        max_value=150.0,
+        value=st.session_state.max_temperature,
+        step=1.0
+    )
+
+if st.button("✅ APPLY BATTERY VALUES", use_container_width=True):
+
+    st.session_state.battery_capacity = user_capacity
+    st.session_state.nominal_voltage = user_nominal_voltage
+    st.session_state.max_voltage = user_max_voltage
+    st.session_state.max_current = user_max_current
+    st.session_state.max_temperature = user_max_temperature
+
+    event("User battery parameters updated")
+
+    st.success("Battery values applied successfully.")
+    st.rerun()
  
 q1, q2, q3, q4 = st.columns(4) 
  
@@ -914,16 +1005,16 @@ with m2:
     st.markdown('<div class="panel"><b>OPERATING PARAMETERS</b></div>', 
                 unsafe_allow_html=True) 
  
-    rows = [ 
-        ("Battery Capacity", "100 Ah"), 
-        ("Nominal Voltage", "48 V"), 
-        ("Maximum Voltage", "52 V"), 
-        ("Maximum Current", "30 A"), 
-        ("Maximum Temperature", "60 °C"), 
-        ("Battery SOH", f"{st.session_state.soh:.1f}%"), 
-        ("Charge Cycles", str(st.session_state.cycles)), 
-        ("Operating Mode", st.session_state.mode) 
-    ] 
+    rows = [
+    ("Battery Capacity", f"{st.session_state.battery_capacity:.0f} Ah"),
+    ("Nominal Voltage", f"{st.session_state.nominal_voltage:.0f} V"),
+    ("Maximum Voltage", f"{st.session_state.max_voltage:.0f} V"),
+    ("Maximum Current", f"{st.session_state.max_current:.0f} A"),
+    ("Maximum Temperature", f"{st.session_state.max_temperature:.0f} °C"),
+    ("Battery SOH", f"{st.session_state.soh:.1f}%"),
+    ("Charge Cycles", str(st.session_state.cycles)),
+    ("Operating Mode", st.session_state.mode)
+]
  
     for name, value in rows: 
         st.markdown( 
@@ -1078,7 +1169,11 @@ st.markdown(
     unsafe_allow_html=True 
 ) 
  
-total_energy = 48 * 100 / 1000 
+total_energy = (
+    st.session_state.nominal_voltage
+    * st.session_state.battery_capacity
+    / 1000
+)
 available_energy = total_energy * st.session_state.soc / 100 
 power_kw = abs(st.session_state.voltage * st.session_state.current) / 1000 
 consumption = 0.12 
